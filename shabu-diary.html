@@ -130,6 +130,16 @@ header{position:sticky;top:0;z-index:5;height:58px;display:flex;align-items:cent
 .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:9px 16px;border-radius:20px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9;white-space:nowrap}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
+/* ---------- login ---------- */
+.hdr-btn{font-size:13px;color:var(--sub);border:1.5px solid #C9C2B7;border-radius:20px;padding:4px 12px;background:#fff}
+.login{margin-top:24px;background:var(--paper);border:2.5px solid var(--ink);border-radius:18px 14px 20px 15px;padding:20px 18px;display:flex;flex-direction:column;gap:14px}
+.login-lead{font-size:24px;text-align:center}
+.login label{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600}
+.login input{font:inherit;font-size:16px;height:48px;border:2px solid var(--ink);border-radius:12px;padding:0 12px;background:#fff;color:var(--ink)}
+.login-err{min-height:20px;font-size:14px;color:var(--chili)}
+.link{font-size:14px;color:var(--sub);text-decoration:underline;align-self:center;padding:4px}
+.msg{text-align:center;margin-top:60px;font-size:22px}
+
 @media (min-width:600px){
   .app{padding-top:10px}
   .ing svg{width:96px;height:96px}
@@ -365,24 +375,137 @@ const store={
 };
 
 /* =========================================================
+   클라우드 (Firebase: 로그인 & 동생이랑 같이 보는 기록)
+   기록은 Firestore 'records' 모음에 날짜(YYYY-MM-DD)마다 문서 하나씩.
+   ========================================================= */
+const firebaseConfig={
+  apiKey:"AIzaSyBjUyeRqwZ7vhRy6UX8ozU9bhmtx0OQBAY",
+  authDomain:"shabu-diary.firebaseapp.com",
+  projectId:"shabu-diary",
+  storageBucket:"shabu-diary.firebasestorage.app",
+  messagingSenderId:"160507500580",
+  appId:"1:160507500580:web:b210e47bd03526049f60b1"
+};
+const FB='https://www.gstatic.com/firebasejs/10.14.1/';
+const cloud={auth:null,db:null,au:null,fs:null,unsub:null,migrating:false};
+
+async function cloudInit(){
+  const [{initializeApp},au,fs]=await Promise.all([import(FB+'firebase-app.js'),import(FB+'firebase-auth.js'),import(FB+'firebase-firestore.js')]);
+  const app=initializeApp(firebaseConfig);
+  cloud.au=au;cloud.fs=fs;
+  cloud.auth=au.getAuth(app);
+  // 폰 안에도 사본을 둬서 잠깐 인터넷이 끊겨도 보이고, 저장은 연결되면 올라감
+  cloud.db=fs.initializeFirestore(app,{localCache:fs.persistentLocalCache({tabManager:fs.persistentMultipleTabManager()})});
+  au.onAuthStateChanged(cloud.auth,user=>{
+    S.user=user;
+    if(cloud.unsub){cloud.unsub();cloud.unsub=null}
+    if(user){if(S.view==='login'||S.view==='loading')S.view='cal';watchRecords()}
+    else{S.records={};S.view='login'}
+    render();
+  });
+}
+function watchRecords(){
+  const {collection,onSnapshot}=cloud.fs;
+  cloud.unsub=onSnapshot(collection(cloud.db,'records'),snap=>{
+    const r={};snap.forEach(d=>{r[d.id]=d.data()});
+    S.records=r;refresh();
+    if(!snap.metadata.fromCache)migrateLocal(r);
+  },err=>{console.error(err);toast(err.code==='permission-denied'?'이 계정은 기록을 볼 수 없어요':'기록을 불러오지 못했어요')});
+}
+function cloudSave(k,rec){
+  const {doc,setDoc}=cloud.fs;
+  setDoc(doc(cloud.db,'records',k),rec).catch(e=>{console.error(e);toast('저장하지 못했어요')});
+}
+function cloudDelete(k){
+  const {doc,deleteDoc}=cloud.fs;
+  deleteDoc(doc(cloud.db,'records',k)).catch(e=>{console.error(e);toast('삭제하지 못했어요')});
+}
+// 1단계 때 폰에만 저장했던 기록을 한 번 올림. 같은 날짜가 이미 있으면 올라가 있는 쪽을 그대로 둠.
+// 폰의 기록은 지우지 않고 'shabu-records-backup'으로 이름만 바꿔 남겨둠.
+async function migrateLocal(server){
+  if(cloud.migrating)return;
+  const local=await store.get('shabu-records');if(!local)return;
+  cloud.migrating=true;
+  const {doc,setDoc}=cloud.fs;
+  const todo=Object.entries(local).filter(([k])=>!server[k]);
+  try{
+    await Promise.all(todo.map(([k,v])=>setDoc(doc(cloud.db,'records',k),{...v,by:S.user.email})));
+    await store.set('shabu-records-backup',local);
+    localStorage.removeItem('shabu-records');
+    if(todo.length)toast(`이 폰에 있던 기록 ${todo.length}개를 올렸어요`);
+  }catch(e){console.error(e)}
+  finally{cloud.migrating=false}
+}
+
+const AUTH_MSG={
+  'auth/invalid-email':'이메일 주소를 다시 확인해 주세요',
+  'auth/invalid-credential':'이메일이나 비밀번호가 맞지 않아요',
+  'auth/wrong-password':'이메일이나 비밀번호가 맞지 않아요',
+  'auth/user-not-found':'가입된 이메일이 아니에요. 처음이면 아래 가입하기를 눌러주세요',
+  'auth/email-already-in-use':'이미 가입된 이메일이에요. 로그인을 눌러주세요',
+  'auth/weak-password':'비밀번호는 6자 이상이어야 해요',
+  'auth/too-many-requests':'너무 여러 번 시도했어요. 잠시 뒤에 다시 해주세요',
+  'auth/network-request-failed':'인터넷 연결을 확인해 주세요',
+};
+async function authDo(kind){
+  const email=$('#email').value.trim(),pw=$('#pw').value,err=$('#loginErr'),au=cloud.au;
+  err.textContent='';
+  if(!email){err.textContent='이메일을 적어주세요';return}
+  try{
+    if(kind==='reset'){await au.sendPasswordResetEmail(cloud.auth,email);err.textContent='비밀번호를 바꾸는 메일을 보냈어요. 메일함을 확인해 주세요';return}
+    if(pw.length<6){err.textContent='비밀번호는 6자 이상이어야 해요';return}
+    if(kind==='signup')await au.createUserWithEmailAndPassword(cloud.auth,email,pw);
+    else await au.signInWithEmailAndPassword(cloud.auth,email,pw);
+  }catch(e){console.error(e);err.textContent=AUTH_MSG[e.code]||'잠시 뒤에 다시 해주세요'}
+}
+
+/* =========================================================
    상태 & 화면
    ========================================================= */
 const today=new Date();today.setHours(0,0,0,0);
-const S={records:{},view:'cal',month:new Date(today.getFullYear(),today.getMonth(),1),date:null,draft:{},prefs:{mode:'pic',hideUnused:false},armed:false};
+const S={records:{},user:null,view:'loading',month:new Date(today.getFullYear(),today.getMonth(),1),date:null,draft:{},prefs:{mode:'pic',hideUnused:false},armed:false};
 
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1600)}
 const ico={
   left:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
   right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
 };
-function header(back){
-  return `<header>${back?`<button class="back" data-act="home">${ico.left}달력</button>`:`<div class="brand hand">샤브 일지</div>`}<span></span></header>`;
+function header(back,right=''){
+  return `<header>${back?`<button class="back" data-act="home">${ico.left}달력</button>`:`<div class="brand hand">샤브 일지</div>`}<span>${right}</span></header>`;
 }
 
-function render(){
+function render(keepScroll){
   S.armed=false;
-  if(S.view==='cal')renderCal();else if(S.view==='edit')renderEdit();else renderDetail();
-  window.scrollTo(0,0);
+  const v=S.view;
+  if(v==='cal')renderCal();else if(v==='edit')renderEdit();else if(v==='detail')renderDetail();
+  else if(v==='login')renderLogin();else renderMsg();
+  if(!keepScroll)window.scrollTo(0,0);
+}
+// 동생 쪽 기록이 바뀌었을 때: 보고 있는 화면만 조용히 새로 그림 (편집 중엔 건드리지 않음)
+function refresh(){
+  if(S.view==='cal')render(true);
+  else if(S.view==='detail'){if(S.records[S.date])render(true);else{S.view='cal';render()}}
+}
+
+/* ---- 로그인 ---- */
+function renderLogin(){
+  $('#app').innerHTML=header(false)+`
+    <form class="login" id="loginForm" novalidate>
+      <p class="login-lead hand">동생이랑 같이 쓰는 샤브 일지</p>
+      <label>이메일<input type="email" id="email" autocomplete="username" autocapitalize="off"></label>
+      <label>비밀번호 (6자 이상)<input type="password" id="pw" autocomplete="current-password"></label>
+      <p class="login-err" id="loginErr" role="alert"></p>
+      <button type="button" class="link" data-act="signup">처음이에요 · 이 이메일로 가입하기</button>
+      <button type="button" class="link" data-act="reset">비밀번호를 잊었어요</button>
+    </form>`;
+  $('#bar').innerHTML=`<div class="bar-in"><button class="btn primary" type="submit" form="loginForm">로그인</button></div>`;
+  $('#loginForm').addEventListener('submit',e=>{e.preventDefault();authDo('login')});
+}
+/* ---- 불러오는 중 / 연결 안 됨 ---- */
+function renderMsg(){
+  const off=S.view==='offline';
+  $('#app').innerHTML=header(false)+`<p class="msg hand">${off?'인터넷에 연결되지 않았어요':'불러오는 중…'}</p>`;
+  $('#bar').innerHTML=off?`<div class="bar-in"><button class="btn" data-act="retry">다시 시도</button></div>`:'';
 }
 
 /* ---- 달력 ---- */
@@ -397,7 +520,7 @@ function renderCal(){
     cells+=`<button class="day ${rec?'has':''} ${dt.getDay()===0?'sun':''} ${+dt===+today?'today':''}" data-date="${k}" aria-label="${m+1}월 ${d}일${rec?' 샤브샤브 먹은 날':''}"><span class="n">${d}</span>${rec?miniPot(rec.items):''}</button>`;
   }
   const top=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
-  $('#app').innerHTML=header(false)+`
+  $('#app').innerHTML=header(false,`<button class="hdr-btn" data-act="logout">로그아웃</button>`)+`
     <section class="sheet">
       <div class="cal-head"><button class="nav" data-act="prev" aria-label="이전 달">${ico.left}</button>
         <h2 class="hand">${y}년 ${m+1}월</h2>
@@ -503,16 +626,20 @@ document.addEventListener('click',async e=>{
     case 'next':S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);render();break;
     case 'new-today':S.date=keyOf(today);S.draft={};S.view='edit';render();break;
     case 'open-today':S.date=keyOf(today);S.view='detail';render();break;
-    case 'save':
-      S.records[S.date]={items:{...S.draft},saved:Date.now()};
-      await store.set('shabu-records',S.records);
-      S.view='detail';render();toast('저장했어요');break;
+    case 'save':{
+      const rec={items:{...S.draft},saved:Date.now(),by:S.user.email};
+      S.records[S.date]=rec;cloudSave(S.date,rec);
+      S.view='detail';render();toast(navigator.onLine?'저장했어요':'저장했어요 · 인터넷이 연결되면 올라가요');break;}
     case 'edit':S.draft={...S.records[S.date].items};S.view='edit';render();break;
     case 'del':
       if(!S.armed){S.armed=true;a.classList.add('armed');a.textContent='한 번 더 누르면 삭제';
         clearTimeout(a._t);a._t=setTimeout(()=>{S.armed=false;a.classList.remove('armed');a.textContent='삭제'},2500);break}
-      delete S.records[S.date];await store.set('shabu-records',S.records);
+      delete S.records[S.date];cloudDelete(S.date);
       S.view='cal';render();toast('삭제했어요');break;
+    case 'signup':authDo('signup');break;
+    case 'reset':authDo('reset');break;
+    case 'logout':cloud.au.signOut(cloud.auth);break;
+    case 'retry':location.reload();break;
     case 'mode-pic':S.prefs.mode='pic';store.set('shabu-prefs',S.prefs);render();break;
     case 'mode-text':S.prefs.mode='text';store.set('shabu-prefs',S.prefs);render();break;
     case 'unused-outline':S.prefs.hideUnused=false;store.set('shabu-prefs',S.prefs);render();break;
@@ -524,10 +651,9 @@ document.addEventListener('click',async e=>{
    시작
    ========================================================= */
 (async function init(){
-  const saved=await store.get('shabu-records');
-  if(saved)S.records=saved;
   const pr=await store.get('shabu-prefs');if(pr)S.prefs={...S.prefs,...pr};
-  render();
+  S.view='loading';render();
+  try{await cloudInit()}catch(e){console.error(e);S.view='offline';render()}
 })();
 </script>
 </body>
