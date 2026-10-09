@@ -92,6 +92,12 @@ header{position:sticky;top:0;z-index:5;height:58px;display:flex;align-items:cent
 .ing .lbl b{color:var(--chili);font-weight:800}
 .ing.off .lbl{color:#A39C91}
 .ing.pressing svg{transform:scale(.82)}
+.ing.lifted{opacity:.3}
+.row{transition:background .15s}
+.row.drop{background:rgba(47,122,69,.14);border-radius:18px;box-shadow:inset 0 0 0 2.5px var(--green)}
+.ghost{position:fixed;left:0;top:0;width:80px;height:80px;z-index:30;pointer-events:none;filter:drop-shadow(0 6px 8px rgba(0,0,0,.25))}
+.ghost svg{width:100%;height:100%;transform:scale(1.12)}
+body.dragging{user-select:none;-webkit-user-select:none}
 .ing.pop svg{animation:pop .35s ease}
 .ing.shake svg{animation:shake .35s ease}
 @keyframes pop{40%{transform:scale(1.14)}}
@@ -160,6 +166,9 @@ header{position:sticky;top:0;z-index:5;height:58px;display:flex;align-items:cent
 .check input{width:20px;height:20px;accent-color:var(--green)}
 .modal-btns{display:flex;gap:8px}
 .hid{border-top:1.5px dashed #E4D3BC;padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.move-row{display:flex;flex-wrap:wrap;gap:8px}
+.move-row .chip{font-size:14px;padding:7px 14px}
+.fld .sub{font-weight:400;color:var(--sub)}
 .hid-row{display:flex;align-items:center;justify-content:space-between}
 
 @media (min-width:600px){
@@ -214,7 +223,10 @@ const COLORS = ['#C63D4A','#F2A7A4','#E8A23A','#EAD45C','#DDEB98','#3F8A47','#F7
 let ING, BY, ROWS, BROTH, POT_ING, SLOTS, HIDDEN = new Set();
 function applyIngredients(cfg={}){
   const rowNames=BASE_ROWS.map(r=>r[0]);
-  const custom=(cfg.custom||[]).filter(i=>i&&/^x[0-9a-z]+$/.test(i.k)&&rowNames.includes(i.row)).map(customIng);
+  const moved=cfg.moved||{};  // {재료키: 옮긴 분류} — 추가할 때 고른 분류보다 우선
+  const custom=(cfg.custom||[]).filter(i=>i&&/^x[0-9a-z]+$/.test(i.k))
+    .map(i=>({...i,row:rowNames.includes(moved[i.k])?moved[i.k]:i.row}))
+    .filter(i=>rowNames.includes(i.row)).map(customIng);
   ING=[...BASE_ING,...custom];
   BY=Object.fromEntries(ING.map(i=>[i.k,i]));
   ROWS=BASE_ROWS.map(([n,ks])=>[n,[...ks,...custom.filter(i=>i.row===n).map(i=>i.k)]]);
@@ -228,7 +240,7 @@ function customIng(i){
   const name=String(i.name||'').replace(/[<>&"']/g,'').trim().slice(0,10)||'재료';
   const c=/^#[0-9a-fA-F]{6}$/.test(i.c)?i.c:'#C9B79C';
   const o={k:i.k,name,label:name,row:i.row,cat:i.row===SIDE_ROW?'기타':i.row,custom:1};
-  if(i.row==='육수')o.broth=c;else{o.c=c;if(i.pot!==false)o.pot=1}
+  if(i.row==='육수')o.broth=c;else{o.c=c;if(i.row!==SIDE_ROW||i.pot!==false)o.pot=1}
   ART[o.k]=NAMED_ART[name]||genArt(o);
   return o;
 }
@@ -444,7 +456,7 @@ function trayHTML(items,{interactive=false,hideUnused=false}={}){
   ROWS.forEach(([name,keys])=>{
     // 숨긴 재료는 그 재료가 들어간 기록에서만 보임
     const ks=keys.filter(k=>items[k]||(!hideUnused&&!HIDDEN.has(k)));if(!ks.length&&!interactive)return;
-    h+=`<div class="row"><div class="row-name hand">${name}</div><div class="cells">`+
+    h+=`<div class="row" data-row="${name}"><div class="row-name hand">${name}</div><div class="cells">`+
       ks.map(k=>{const n=items[k]||0;const tag=interactive?'button':'div';
         return `<${tag} class="ing ${n?'on':'off'}" data-k="${k}" ${interactive?`aria-label="${BY[k].name} ${n}개"`:''}>${cellInner(k,n)}</${tag}>`}).join('')+
       (interactive?addCell(name):'')+`</div></div>`});
@@ -647,7 +659,7 @@ function renderEdit(){
     <div class="pot-wrap" id="potWrap">${potSVG(S.draft)}</div>
     <p class="broth-name hand" id="brothName">${brothName(S.draft)}</p>
     ${trayHTML(S.draft,{interactive:true})}
-    <p class="tray-tip">안 먹는 재료는 꾹 눌러서 목록에서 숨길 수 있어요</p>`;
+    <p class="tray-tip">재료를 꾹 누르면 숨기거나 분류를 옮길 수 있어요<br>직접 추가한 재료는 꾹 누른 채로 끌어서 옮겨도 돼요</p>`;
   updateSaveBar();
   bindTray();
   $('#datePick').addEventListener('change',e=>{if(e.target.value){S.date=e.target.value;const f=fmtDate(S.date);
@@ -673,19 +685,63 @@ function bindTray(){
   tray.addEventListener('contextmenu',e=>e.preventDefault());
   tray.addEventListener('pointerdown',e=>{
     const b=e.target.closest('.ing[data-k]');if(!b)return;
+    try{b.setPointerCapture(e.pointerId)}catch(_){}
     pt={b,x:e.clientX,y:e.clientY,long:false,cancel:false};
     b.classList.add('pressing');
-    pt.t=setTimeout(()=>{pt.long=true;b.classList.remove('pressing');
-      if(S.draft[b.dataset.k]){setCount(b.dataset.k,0,b);navigator.vibrate&&navigator.vibrate(30);toast(`${BY[b.dataset.k].label} 뺐어요`)}
-      else openModal({type:'hide',k:b.dataset.k})},550);
+    pt.t=setTimeout(()=>{pt.long=true;b.classList.remove('pressing');const k=b.dataset.k;
+      if(S.draft[k]){setCount(k,0,b);navigator.vibrate&&navigator.vibrate(30);toast(`${BY[k].label} 뺐어요`)}
+      else if(BY[k].custom)dragStart(pt);   // 추가한 재료: 들어 올림 → 끌면 분류 옮기기, 그냥 떼면 창
+      else openModal({type:'hide',k})},550);
   });
-  tray.addEventListener('pointermove',e=>{if(pt&&!pt.cancel&&Math.hypot(e.clientX-pt.x,e.clientY-pt.y)>10){pt.cancel=true;clearTimeout(pt.t);pt.b.classList.remove('pressing')}});
+  tray.addEventListener('pointermove',e=>{if(!pt)return;
+    if(pt.drag){dragMove(pt,e);return}
+    if(!pt.cancel&&Math.hypot(e.clientX-pt.x,e.clientY-pt.y)>10){pt.cancel=true;clearTimeout(pt.t);pt.b.classList.remove('pressing')}});
+  // 끄는 동안 화면이 스크롤되지 않게 (아이폰)
+  tray.addEventListener('touchmove',e=>{if(pt&&pt.drag)e.preventDefault()},{passive:false});
   const end=e=>{if(!pt)return;clearTimeout(pt.t);pt.b.classList.remove('pressing');
-    if(e.type==='pointerup'&&!pt.long&&!pt.cancel){const k=pt.b.dataset.k;setCount(k,(S.draft[k]||0)+1,pt.b)}pt=null};
-  tray.addEventListener('pointerup',end);tray.addEventListener('pointercancel',end);tray.addEventListener('pointerleave',e=>{if(pt&&e.target===tray)end(e)});
+    if(pt.drag)dragEnd(pt,e.type==='pointerup');
+    else if(e.type==='pointerup'&&!pt.long&&!pt.cancel){const k=pt.b.dataset.k;setCount(k,(S.draft[k]||0)+1,pt.b)}
+    pt=null};
+  tray.addEventListener('pointerup',end);tray.addEventListener('pointercancel',end);tray.addEventListener('pointerleave',e=>{if(pt&&!pt.drag&&e.target===tray)end(e)});
   // 키보드: Enter/Space = +1, Delete/Backspace = 빼기
   tray.addEventListener('click',e=>{if(e.detail!==0)return;const b=e.target.closest('.ing[data-k]');if(b){const k=b.dataset.k;setCount(k,(S.draft[k]||0)+1,b)}});
   tray.addEventListener('keydown',e=>{const b=e.target.closest('.ing[data-k]');if(b&&(e.key==='Delete'||e.key==='Backspace')){e.preventDefault();setCount(b.dataset.k,0,b)}});
+}
+
+/* ---- 추가한 재료 끌어서 분류 옮기기 ---- */
+function dragStart(pt){
+  pt.drag=true;pt.moved=false;pt.from=rowOf(pt.b.dataset.k);
+  navigator.vibrate&&navigator.vibrate(30);
+  pt.b.classList.add('lifted');document.body.classList.add('dragging');
+  pt.ghost=document.createElement('div');pt.ghost.className='ghost';
+  pt.ghost.innerHTML=`<svg viewBox="0 0 100 100">${art(pt.b.dataset.k)}</svg>`;
+  document.body.appendChild(pt.ghost);
+  pt.cx=pt.x;pt.cy=pt.y;dragPaint(pt);
+  // 손가락이 화면 위/아래 끝에 있으면 천천히 스크롤
+  const loop=()=>{if(!pt.drag)return;const h=innerHeight;
+    if(pt.cy<90)scrollBy(0,-10);else if(pt.cy>h-140)scrollBy(0,10);
+    if(pt.moved)dragPaint(pt);requestAnimationFrame(loop)};
+  requestAnimationFrame(loop);
+}
+function dragMove(pt,e){
+  pt.cx=e.clientX;pt.cy=e.clientY;
+  if(Math.hypot(pt.cx-pt.x,pt.cy-pt.y)>10)pt.moved=true;
+  dragPaint(pt);
+}
+function dragPaint(pt){
+  pt.ghost.style.transform=`translate(${pt.cx-40}px,${pt.cy-56}px)`;
+  const el=document.elementFromPoint(pt.cx,pt.cy),row=el&&el.closest('.row[data-row]');
+  pt.to=row?row.dataset.row:null;
+  document.querySelectorAll('.row.drop').forEach(r=>{if(r!==row)r.classList.remove('drop')});
+  if(row&&pt.to!==pt.from)row.classList.add('drop');
+}
+function dragEnd(pt,dropped){
+  pt.drag=false;pt.ghost.remove();pt.b.classList.remove('lifted');document.body.classList.remove('dragging');
+  document.querySelectorAll('.row.drop').forEach(r=>r.classList.remove('drop'));
+  const k=pt.b.dataset.k;
+  if(!dropped)return;
+  if(!pt.moved){openModal({type:'hide',k});return}
+  if(pt.to&&pt.to!==pt.from){cloudIng({moved:{[k]:pt.to}});toast(`${BY[k].label}, ${withRo(pt.to)} 옮겼어요`)}
 }
 
 /* ---- 저장된 날 보기 ---- */
@@ -722,9 +778,13 @@ function closeModal(){S.modal=null;const el=$('#modal');el.hidden=true;el.innerH
 function renderModal(){
   const m=S.modal,el=$('#modal');el.hidden=false;
   if(m.type==='hide'){
-    el.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-label="재료 숨기기">
-      <h3 class="hand">${BY[m.k].label} 숨기기</h3>
-      <p>재료 목록에서 숨길까요? 예전 기록에는 그대로 남아 있고, 나중에 ${rowOf(m.k)}의 + 칸에서 다시 꺼낼 수 있어요.</p>
+    const i=BY[m.k],cur=rowOf(m.k);
+    const move=i.custom?`<div class="fld">분류 옮기기 <span class="sub">(지금: ${cur})</span><div class="move-row">${BASE_ROWS.map(r=>r[0]).filter(r=>r!==cur)
+      .map(r=>`<button class="chip" data-act="move-ok" data-row="${r}">${r}</button>`).join('')}</div></div>`:'';
+    el.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-label="${i.label} 관리">
+      <h3 class="hand">${i.label}</h3>
+      ${move}
+      <p>목록에서 숨길 수도 있어요. 예전 기록에는 그대로 남아 있고, 나중에 ${cur}의 + 칸에서 다시 꺼낼 수 있어요.</p>
       <div class="modal-btns"><button class="btn" data-act="modal-close">취소</button><button class="btn primary" data-act="hide-ok">숨기기</button></div></div>`;
     return;
   }
@@ -745,6 +805,8 @@ function renderModal(){
   $('#ingName').addEventListener('input',e=>{m.name=e.target.value;prev()});
   const pot=$('#ingPot');if(pot)pot.addEventListener('change',e=>{m.pot=e.target.checked});
 }
+// '야채로' / '버섯으로' 처럼 받침에 맞춰 조사 붙이기
+const withRo=w=>{const c=w.charCodeAt(w.length-1)-0xAC00,j=c>=0&&c<11172?c%28:0;return w+(j&&j!==8?'으로':'로')};
 const rowOf=k=>ROWS.find(r=>r[1].includes(k))[0];
 
 /* =========================================================
@@ -791,6 +853,7 @@ document.addEventListener('click',async e=>{
       const o={k:'x'+Date.now().toString(36),name,row:m.row,c:m.c};
       if(m.row===SIDE_ROW)o.pot=!!m.pot;
       closeModal();cloudIng({custom:cloud.fs.arrayUnion(o)});toast(`${name} 추가했어요`);break;}
+    case 'move-ok':{const k=S.modal.k,row=a.dataset.row;closeModal();cloudIng({moved:{[k]:row}});toast(`${BY[k].label}, ${withRo(row)} 옮겼어요`);break;}
     case 'hide-ok':{const k=S.modal.k;closeModal();cloudIng({hidden:cloud.fs.arrayUnion(k)});toast(`${BY[k].label} 숨겼어요`);break;}
     case 'unhide':closeModal();cloudIng({hidden:cloud.fs.arrayRemove(a.dataset.k)});toast(`${BY[a.dataset.k].label} 다시 꺼냈어요`);break;
     case 'mode-pic':S.prefs.mode='pic';store.set('shabu-prefs',S.prefs);render();break;
