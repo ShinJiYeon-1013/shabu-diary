@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="샤브 일지">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#E3EAE8">
+<link rel="apple-touch-icon" href="icon.png">
+<title>샤브 일지</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --tile:#E3EAE8; --tile-line:#D3DDDA;
+  --ink:#2B2A33; --sub:#6E6C75;
+  --wood:#A8744B; --wood-in:#FCF5EA;
+  --green:#2F7A45; --chili:#C93A2B; --paper:#FFFFFF;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+  color:var(--ink);font-size:15px;line-height:1.5;
+  background:var(--tile);
+  background-image:linear-gradient(var(--tile-line) 1.5px,transparent 1.5px),linear-gradient(90deg,var(--tile-line) 1.5px,transparent 1.5px);
+  background-size:46px 46px;
+}
+.hand{font-family:"Gaegu","Apple SD Gothic Neo",sans-serif}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--green);outline-offset:2px;border-radius:8px}
+
+.app{max-width:480px;margin:0 auto;min-height:100dvh;padding:0 16px calc(110px + env(safe-area-inset-bottom));}
+header{position:sticky;top:0;z-index:5;height:58px;display:flex;align-items:center;justify-content:space-between;
+  background:rgba(227,234,232,.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -16px;padding:0 16px}
+.brand{font-size:28px;font-weight:700;letter-spacing:-.5px;display:flex;align-items:center;gap:6px}
+.back{font-size:15px;font-weight:600;padding:8px 10px 8px 2px;display:flex;align-items:center;gap:2px}
+.back svg{width:20px;height:20px}
+
+/* ---------- calendar ---------- */
+.sheet{background:var(--paper);border:2.5px solid var(--ink);border-radius:18px 14px 20px 15px;padding:14px 12px 16px;position:relative;margin-top:14px}
+.sheet::before{content:"";position:absolute;top:-12px;left:50%;width:82px;height:22px;transform:translateX(-50%) rotate(-3deg);background:rgba(240,214,120,.75);border-radius:3px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 10px}
+.cal-head h2{font-size:30px;font-weight:700;line-height:1}
+.nav{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--ink)}
+.nav svg{width:18px;height:18px}
+.dow,.grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.dow span{text-align:center;font-size:12px;color:var(--sub);padding-bottom:6px}
+.dow span:first-child{color:var(--chili)}
+.day{aspect-ratio:1/1.12;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:3px;border-radius:12px;position:relative}
+.day .n{font-size:13px;font-weight:600;line-height:1.2}
+.day.sun .n{color:var(--chili)}
+.day.today .n{background:var(--ink);color:#fff;border-radius:10px;padding:0 6px}
+.day.has{background:#FBF1E2}
+.day .mini{width:88%;max-width:46px;margin-top:2px}
+.day.blank{pointer-events:none}
+.month-note{font-size:21px;text-align:center;margin:18px 0 4px}
+.month-note b{color:var(--chili)}
+.fav{text-align:center;color:var(--sub);font-size:13px}
+
+/* ---------- pot ---------- */
+.pot-wrap{display:flex;justify-content:center;margin-top:4px}
+.pot{width:100%;max-width:360px;height:auto;overflow:visible}
+.broth-name{text-align:center;font-size:19px;margin-top:-4px;color:var(--sub)}
+.bob{transform-box:fill-box;transform-origin:center;animation:bob 3.2s ease-in-out infinite}
+.drop{transform-box:fill-box;transform-origin:center;animation:drop .55s cubic-bezier(.3,1.5,.5,1)}
+.bub{transform-box:fill-box;transform-origin:center;animation:bub 2.6s ease-out infinite;opacity:0}
+.steam{animation:steam 4.5s ease-in-out infinite;opacity:0}
+@keyframes bob{50%{transform:translate(0,-2.5px) rotate(4deg)}}
+@keyframes drop{0%{transform:translateY(-60px) scale(1.6);opacity:0}100%{transform:none;opacity:1}}
+@keyframes bub{0%{transform:scale(.2);opacity:0}25%{opacity:.95}100%{transform:scale(1.35);opacity:0}}
+@keyframes steam{0%{transform:translateY(14px);opacity:0}40%{opacity:.7}100%{transform:translateY(-26px);opacity:0}}
+
+/* ---------- date row ---------- */
+.date-row{display:flex;align-items:center;justify-content:space-between;margin:12px 2px 0}
+.date-title{font-size:30px;font-weight:700;line-height:1.1;position:relative}
+.date-title input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}
+.date-title small{font-size:15px;font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;font-weight:500;color:var(--sub);margin-left:4px}
+.hint{font-size:12.5px;color:var(--sub);background:#fff;border:1.5px solid #CFC9BF;border-radius:20px;padding:3px 10px;white-space:nowrap}
+
+/* ---------- tray ---------- */
+.tray{margin-top:10px;border:4px solid var(--wood);background:var(--wood-in);border-radius:30px 22px 34px 20px;padding:10px 8px 14px}
+.row{padding:4px 0}
+.row + .row{border-top:1.5px dashed #E4D3BC}
+.row-name{font-size:17px;color:var(--wood);padding:2px 8px 0;font-weight:700}
+.cells{display:flex;flex-wrap:wrap}
+.ing{width:33.333%;display:flex;flex-direction:column;align-items:center;padding:4px 2px 6px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;position:relative}
+.ing svg{width:84px;height:84px;transition:transform .5s ease}
+.ing .lbl{font-size:12.5px;line-height:1.25;text-align:center;color:var(--ink);min-height:16px}
+.ing .lbl b{color:var(--chili);font-weight:800}
+.ing.off .lbl{color:#A39C91}
+.ing.pressing svg{transform:scale(.82)}
+.ing.pop svg{animation:pop .35s ease}
+.ing.shake svg{animation:shake .35s ease}
+@keyframes pop{40%{transform:scale(1.14)}}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.ing.off svg *{fill:transparent!important;stroke:#BDB5A8!important}
+.ing.off svg .in{stroke:var(--wood-in)!important}
+.ing.off svg .d{stroke:#DDD5C8!important}
+
+/* ---------- view switch ---------- */
+.seg{display:flex;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:3px;margin-top:14px}
+.seg button{flex:1;padding:8px 0;border-radius:10px;font-weight:600;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.opt{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:10px;font-size:13px;color:var(--sub)}
+.chip{border:1.5px solid #C9C2B7;border-radius:20px;padding:3px 11px;background:#fff;font-size:13px}
+.chip[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:#fff}
+
+/* ---------- text view ---------- */
+.textlist{margin-top:10px;background:#fff;border:2.5px solid var(--ink);border-radius:16px 20px 15px 18px;padding:6px 18px 14px}
+.textlist h3{font-size:20px;color:var(--wood);margin-top:10px;font-weight:700}
+.textlist ul{list-style:none}
+.textlist li{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #EEE9E1}
+.textlist li:last-child{border-bottom:0}
+.textlist li span:last-child{font-weight:700}
+.textlist .sum{font-size:13px;color:var(--sub);padding-top:8px}
+
+/* ---------- bottom bar ---------- */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:12px 16px calc(14px + env(safe-area-inset-bottom));
+  background:linear-gradient(rgba(227,234,232,0),rgba(227,234,232,.95) 30%)}
+.bar-in{max-width:448px;margin:0 auto;display:flex;gap:8px}
+.btn{flex:1;height:54px;border-radius:16px;font-size:17px;font-weight:700;border:2.5px solid var(--ink);background:#fff;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn.primary{background:var(--green);color:#fff}
+.btn.primary:disabled{background:#B8C2BC;border-color:#9AA49E;color:#F3F5F4;cursor:default}
+.btn.danger{flex:0 0 auto;padding:0 18px;color:var(--chili);border-color:var(--chili)}
+.btn.danger.armed{background:var(--chili);color:#fff;flex:1}
+
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:9px 16px;border-radius:20px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9;white-space:nowrap}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (min-width:600px){
+  .app{padding-top:10px}
+  .ing svg{width:96px;height:96px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .bub,.steam{opacity:.5}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div class="bar" id="bar"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   재료 정의
+   ========================================================= */
+const ING = [
+  {k:'dashima', name:'다시마육수코인', label:'다시마 코인', cat:'육수', broth:'#C8BE80'},
+  {k:'beef',    name:'소고기육수코인', label:'소고기 코인', cat:'육수', broth:'#B47246'},
+  {k:'anchovy', name:'멸치육수코인',   label:'멸치 코인',   cat:'육수', broth:'#D7C597'},
+  {k:'chadol',  name:'차돌박이',   label:'차돌박이',   cat:'고기', pot:1, c:'#C63D4A'},
+  {k:'usam',    name:'우삼겹',     label:'우삼겹',     cat:'고기', pot:1, c:'#B8334A'},
+  {k:'daepae',  name:'대패삼겹',   label:'대패삼겹',   cat:'고기', pot:1, c:'#F2A7A4'},
+  {k:'enoki',   name:'팽이버섯',   label:'팽이버섯',   cat:'버섯', pot:1, c:'#EFE5C2'},
+  {k:'oyster',  name:'느타리버섯', label:'느타리버섯', cat:'버섯', pot:1, c:'#8E8A86'},
+  {k:'napa',    name:'알배추',     label:'알배추',     cat:'야채', pot:1, c:'#DDEB98'},
+  {k:'sprout',  name:'숙주나물',   label:'숙주나물',   cat:'야채', pot:1, c:'#F4EFD8'},
+  {k:'bokchoy', name:'청경채',     label:'청경채',     cat:'야채', pot:1, c:'#3F8A47'},
+  {k:'sauce',   name:'베트남 친수소스', label:'친수소스', cat:'소스'},
+  {k:'paper',   name:'라이스페이퍼', label:'라이스페이퍼', cat:'기타'},
+  {k:'somen',   name:'소면',       label:'소면',       cat:'기타', pot:1, c:'#F6EFD6'},
+];
+const BY = Object.fromEntries(ING.map(i=>[i.k,i]));
+const ROWS = [
+  ['육수',['dashima','beef','anchovy']],
+  ['고기',['chadol','usam','daepae']],
+  ['버섯',['enoki','oyster']],
+  ['야채',['napa','sprout','bokchoy']],
+  ['소스와 곁들임',['sauce','paper','somen']],
+];
+const MAX = 3;
+
+/* =========================================================
+   재료 그림 (viewBox 0 0 100 100)
+   .d = 무늬, .in = 속 하이라이트(테두리 모드에서 숨김)
+   ========================================================= */
+function hatch(cx,cy,r,step,ang){
+  let s='';const a=ang*Math.PI/180,dx=Math.cos(a),dy=Math.sin(a),nx=-dy,ny=dx;
+  for(let o=-r+step/2;o<r;o+=step){const h=Math.sqrt(r*r-o*o),px=cx+nx*o,py=cy+ny*o;
+    s+=`M${(px-dx*h).toFixed(1)} ${(py-dy*h).toFixed(1)}L${(px+dx*h).toFixed(1)} ${(py+dy*h).toFixed(1)}`}
+  return s;
+}
+function coin(front,back,line,emblem){
+  return `<circle cx="50" cy="57" r="31" fill="${back}" stroke="#3B342E"/>
+  <circle cx="50" cy="50" r="31" fill="${front}" stroke="#3B342E"/>
+  <circle class="d" cx="50" cy="50" r="24" stroke="${line}" stroke-width="1.6" stroke-dasharray="3 4"/>
+  ${emblem}`;
+}
+function bokLeaf(rot,s){
+  return `<g transform="rotate(${rot} 50 94) translate(50 94) scale(${s}) translate(-50 -94)">
+    <path d="M44 94 C40 80 42 64 46 54 L54 54 C58 64 60 80 56 94Z" fill="#DCEFC4" stroke="#5F8E43"/>
+    <path d="M50 10 C30 14 30 44 46 56 L54 56 C70 44 70 14 50 10Z" fill="#3F8A47" stroke="#22562A"/>
+    <path class="d" d="M50 54 L50 20" stroke="#A2D08B" stroke-width="2"/>
+  </g>`;
+}
+const ART = {
+  dashima: coin('#76874E','#55623A','#C7D29A',
+    `<g class="d" stroke="#DCE5B0" stroke-width="3"><path d="M40 35 Q34 42 40 50 T40 65"/><path d="M50 33 Q44 41 50 50 T50 67"/><path d="M60 35 Q54 42 60 50 T60 65"/></g>`),
+  beef: coin('#9C5D37','#6C3D22','#E2B795',
+    `<g class="d" stroke="#F4DCC7" stroke-width="2.6"><path d="M37 40 Q31 32 38 29"/><path d="M63 40 Q69 32 62 29"/><ellipse cx="50" cy="47" rx="13" ry="12"/><ellipse cx="50" cy="56" rx="8" ry="5"/></g>`),
+  anchovy: coin('#9BA7B3','#6B7784','#D9E0E7',
+    `<g class="d" stroke="#F4F7FA" stroke-width="2.6"><path d="M33 50 Q46 39 60 50 Q46 61 33 50Z"/><path d="M60 50 L69 43 L69 57Z"/><circle cx="40" cy="48.5" r="1.4"/></g>`),
+
+  chadol: `<path d="M12 40 C20 24 44 22 58 27 C74 22 90 30 89 46 C92 62 80 74 60 73 C42 80 18 74 13 60 C9 53 10 46 12 40Z" fill="#C63D4A" stroke="#7E2330"/>
+    <g class="d" stroke="#FFF1EC"><path d="M20 44 C32 36 44 46 54 40 S76 38 84 44" stroke-width="3.5"/><path d="M18 56 C30 50 40 60 56 54 S74 52 85 58" stroke-width="3"/><path d="M28 66 C38 62 50 68 64 64" stroke-width="2.5"/><path d="M36 32 C44 30 50 34 60 31" stroke-width="2.5"/></g>`,
+
+  usam: `<g transform="rotate(-16 50 50)">
+    <path d="M8 34 Q20 28 32 34 T56 34 T80 34 T94 32 L94 66 Q82 72 70 66 T46 66 T22 66 T8 68Z" fill="#B8334A" stroke="#6E1F2E"/>
+    <g class="d" stroke="#FFEDE6"><path d="M11 44 Q22 39 34 44 T58 44 T82 44 T91 42" stroke-width="5"/><path d="M11 56 Q22 52 34 56 T58 56 T82 56 T91 55" stroke-width="3"/></g></g>`,
+
+  daepae: `<g>
+    <path d="M18 22 L62 22 A10 13 0 0 1 62 48 L18 48 A10 13 0 0 1 18 22Z" fill="#F2A7A4" stroke="#A85A5A"/>
+    <g class="d" stroke="#FFF6F2" stroke-width="2.4"><path d="M28 23 Q26 35 28 47"/><path d="M40 23 Q38 35 40 47"/><path d="M51 23 Q49 35 51 47"/></g>
+    <ellipse cx="62" cy="35" rx="10" ry="13" fill="#F8C9C3" stroke="#A85A5A"/>
+    <path class="d" d="M62 35 m-2 0 a2 2.5 0 1 1 4 0 a4 5 0 1 1 -8 0 a6 8 0 1 1 12 0" stroke="#A85A5A" stroke-width="1.8"/>
+  </g><g transform="translate(16 34)">
+    <path d="M18 22 L62 22 A10 13 0 0 1 62 48 L18 48 A10 13 0 0 1 18 22Z" fill="#F2A7A4" stroke="#A85A5A"/>
+    <g class="d" stroke="#FFF6F2" stroke-width="2.4"><path d="M28 23 Q26 35 28 47"/><path d="M40 23 Q38 35 40 47"/><path d="M51 23 Q49 35 51 47"/></g>
+    <ellipse cx="62" cy="35" rx="10" ry="13" fill="#F8C9C3" stroke="#A85A5A"/>
+    <path class="d" d="M62 35 m-2 0 a2 2.5 0 1 1 4 0 a4 5 0 1 1 -8 0 a6 8 0 1 1 12 0" stroke="#A85A5A" stroke-width="1.8"/>
+  </g>`,
+
+  enoki: (()=>{const st=[[40,82,22,30],[44,82,32,21],[48,82,43,16],[52,82,55,16],[56,82,66,21],[60,82,77,30],[50,82,49,28]];
+    let o='',i='',c='';st.forEach(([a,b,x,y])=>{const d=`M${a} ${b} Q${(a+x)/2} ${(b+y)/2+6} ${x} ${y}`;
+      o+=`<path d="${d}" stroke="#B5A574" stroke-width="6.5"/>`;i+=`<path class="in" d="${d}" stroke="#FFFBEC" stroke-width="3.2"/>`;
+      c+=`<ellipse cx="${x}" cy="${y-1}" rx="5.5" ry="4.2" fill="#EEE3BE" stroke="#9C8B57" stroke-width="2"/>`});
+    return o+i+c+`<path d="M33 76 Q50 70 67 76 L65 92 Q50 97 35 92Z" fill="#B4966A" stroke="#6F5738"/>
+      <g class="d" stroke="#8C7350" stroke-width="2"><path d="M42 82 l1 1"/><path d="M52 86 l1 1"/><path d="M58 80 l1 1"/></g>`})(),
+
+  oyster: `<path d="M48 58 C46 70 44 80 40 89 L52 89 C54 79 56 69 56 58" fill="#EEE7DA" stroke="#8B8070"/>
+    <path d="M14 50 C12 26 46 12 74 20 C90 26 92 44 80 51 C68 57 58 55 54 60 L46 61 C38 57 22 62 14 50Z" fill="#8E8A86" stroke="#4E4A47"/>
+    <g class="d" stroke="#CFC9C1" stroke-width="1.8"><path d="M50 59 L22 46"/><path d="M50 59 L30 32"/><path d="M50 59 L46 24"/><path d="M50 59 L62 24"/><path d="M50 59 L76 32"/><path d="M50 59 L82 46"/></g>`,
+
+  napa: `<path d="M50 93 C28 90 16 72 19 54 C14 46 20 36 22 28 C28 14 40 7 52 9 C64 7 74 14 78 24 C84 32 86 44 81 53 C85 72 71 90 50 93Z" fill="#DDEB98" stroke="#89A043"/>
+    <g class="d" stroke="#B4C766" stroke-width="2"><path d="M46 70 L28 60"/><path d="M47 52 L26 42"/><path d="M48 36 L32 24"/><path d="M55 70 L73 60"/><path d="M54 52 L76 42"/><path d="M53 36 L68 24"/></g>
+    <path d="M43 93 C41 70 44 42 50 16 C56 42 59 70 57 93Z" fill="#FBFAEC" stroke="#B4B888"/>`,
+
+  sprout: (()=>{const p=['M22 24 C30 40 22 60 30 84','M36 16 C44 36 40 58 48 88','M55 20 C51 42 59 62 55 88','M71 18 C63 40 73 60 67 84','M82 30 C76 48 84 64 79 80'];
+    let o='',i='',h='';p.forEach((d,n)=>{o+=`<path d="${d}" stroke="#BDB287" stroke-width="5.6"/>`;i+=`<path class="in" d="${d}" stroke="#FFFEF6" stroke-width="2.8"/>`;
+      const m=d.match(/M(\d+) (\d+)/);h+=`<ellipse cx="${m[1]}" cy="${+m[2]-2}" rx="6.5" ry="4.6" transform="rotate(${n%2?-25:25} ${m[1]} ${+m[2]-2})" fill="#EAD45C" stroke="#A48E28" stroke-width="2"/>`});
+    return o+i+h})(),
+
+  bokchoy: bokLeaf(-26,.86)+bokLeaf(26,.86)+bokLeaf(0,1),
+
+  sauce: `<path d="M40 83 L38 91 L62 91 L60 83" fill="#FFFFFF" stroke="#4E6185"/>
+    <path d="M16 48 L84 48 C82 72 68 85 50 85 C32 85 18 72 16 48Z" fill="#FFFFFF" stroke="#4E6185"/>
+    <path class="d" d="M22 62 Q36 68 50 62 T78 62" stroke="#6E86B5" stroke-width="2.4"/>
+    <ellipse cx="50" cy="48" rx="34" ry="9.5" fill="#E8A23A" stroke="#A86A16"/>
+    <circle cx="38" cy="47" r="2.3" fill="#D7322A" stroke="#D7322A" stroke-width="1"/><circle cx="56" cy="50" r="2.3" fill="#D7322A" stroke="#D7322A" stroke-width="1"/><circle cx="64" cy="46" r="2" fill="#D7322A" stroke="#D7322A" stroke-width="1"/>
+    <circle cx="47" cy="45.5" r="1.8" fill="#FFF8E6" stroke="#F3DDB0" stroke-width="1"/><circle cx="30" cy="49" r="1.6" fill="#FFF8E6" stroke="#F3DDB0" stroke-width="1"/>`,
+
+  paper: `<circle cx="56" cy="56" r="37" fill="#EDE5D3" stroke="#B3A68B"/>
+    <circle cx="46" cy="46" r="37" fill="#F8F3E9" stroke="#B3A68B"/>
+    <path class="d" d="${hatch(46,46,33,8,45)}${hatch(46,46,33,8,-45)}" stroke="#E3D9C5" stroke-width="1.4"/>`,
+
+  somen: `<g transform="rotate(-16 50 50)">
+    <rect x="7" y="38" width="86" height="24" rx="7" fill="#F6EFD6" stroke="#BCAC7A"/>
+    <g class="d" stroke="#D8CCA2" stroke-width="1.6"><path d="M11 43.5H89"/><path d="M11 48H89"/><path d="M11 52.5H89"/><path d="M11 57H89"/></g>
+    <rect x="41" y="33" width="18" height="34" rx="2.5" fill="#3A6FB0" stroke="#22497C"/>
+    <path class="d" d="M50 39 V61" stroke="#DCE7F5" stroke-width="2" stroke-dasharray="3 3"/></g>`,
+};
+const art = k => `<g fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${ART[k]}</g>`;
+
+/* =========================================================
+   유틸
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2,'0');
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseKey = k => {const [y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d)};
+const DOW = ['일','월','화','수','목','금','토'];
+const fmtDate = k => {const d=parseKey(k);return {main:`${d.getMonth()+1}월 ${d.getDate()}일`, dow:DOW[d.getDay()]+'요일', year:d.getFullYear()}};
+function rng(seed){return ()=>{seed=(seed*1664525+1013904223)%4294967296;return seed/4294967296}}
+const hex2rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const rgb2hex=a=>'#'+a.map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');
+const shade=(h,f)=>rgb2hex(hex2rgb(h).map(v=>f>0?v+(255-v)*f:v*(1+f)));
+const total = items => Object.values(items||{}).reduce((a,b)=>a+b,0);
+
+function brothColor(items){
+  let w=0,acc=[0,0,0];
+  ['dashima','beef','anchovy'].forEach(k=>{const n=items[k]||0;if(n){const c=hex2rgb(BY[k].broth);acc=acc.map((v,i)=>v+c[i]*n);w+=n}});
+  return w?rgb2hex(acc.map(v=>v/w)):'#D6E3E5';
+}
+function brothName(items){
+  const s=['dashima','beef','anchovy'].filter(k=>items[k]).map(k=>BY[k].label.replace(' 코인','')+(items[k]>1?` ${items[k]}알`:''));
+  return s.length?s.join(' + ')+' 육수':'아직 맹물이에요';
+}
+
+/* =========================================================
+   냄비
+   ========================================================= */
+const POT_ING = ING.filter(i=>i.pot).map(i=>i.k);
+const SLOTS = (()=>{const N=POT_ING.length*MAX,out=[];
+  for(let i=0;i<N;i++){const a=i*2.39996,r=76*Math.sqrt((i+.6)/N);out.push([160+Math.cos(a)*r,130+Math.sin(a)*r])}
+  const R=rng(7),perm=[...Array(N).keys()];for(let i=N-1;i>0;i--){const j=Math.floor(R()*(i+1));[perm[i],perm[j]]=[perm[j],perm[i]]}
+  return perm.map(p=>out[p]);})();
+let uid=0;
+
+function potSVG(items,dropKey){
+  const id='p'+(++uid), base=brothColor(items);
+  let food='';
+  POT_ING.forEach((k,ii)=>{const n=items[k]||0;
+    for(let c=0;c<n;c++){const [x,y]=SLOTS[c*POT_ING.length+ii];const r=((ii*53+c*97)%360);
+      const isNew = dropKey===k && c===n-1;
+      food+=`<g transform="translate(${(x-24).toFixed(1)} ${(y-24).toFixed(1)}) rotate(${r} 24 24) scale(.48)"><g class="${isNew?'drop':''}"><g class="bob" style="animation-delay:-${(ii*.37+c*.9).toFixed(2)}s">${art(k)}</g></g></g>`}});
+  const R=rng(3);let bubbles='';
+  for(let i=0;i<14;i++){const a=R()*6.283,rr=Math.sqrt(R())*84;
+    bubbles+=`<circle class="bub" style="animation-delay:-${(R()*2.6).toFixed(2)}s" cx="${(160+Math.cos(a)*rr).toFixed(1)}" cy="${(130+Math.sin(a)*rr).toFixed(1)}" r="${(2.5+R()*4).toFixed(1)}" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6"/>`}
+  const side=(k,x,y,dx,dy,sc)=>{let g='';const n=items[k]||0;
+    for(let c=0;c<n;c++){const isNew=dropKey===k&&c===n-1;
+      g+=`<g transform="translate(${x+c*dx} ${y+c*dy}) scale(${sc})"><g class="${isNew?'drop':''}">${art(k)}</g></g>`}return g};
+  const sides=side('sauce',8,176,-6,-9,.66)+side('paper',246,172,4,-6,.72);
+  const steam=[[120,0],[165,1.5],[205,3]].map(([x,d])=>`<path class="steam" style="animation-delay:-${d}s" d="M${x} 150 q-10 -14 0 -28 t0 -28 t0 -28" stroke="rgba(255,255,255,.75)" stroke-width="7" stroke-linecap="round" fill="none"/>`).join('');
+  return `<svg class="pot" viewBox="-12 0 344 254" role="img" aria-label="끓고 있는 샤브샤브 냄비">
+    <defs><clipPath id="${id}c"><circle cx="160" cy="130" r="91"/></clipPath>
+      <radialGradient id="${id}g" cx="42%" cy="38%" r="70%"><stop offset="0" stop-color="${shade(base,.35)}"/><stop offset="1" stop-color="${shade(base,-.12)}"/></radialGradient></defs>
+    <path d="M60 104 C30 96 20 112 22 130 C24 150 40 160 60 154" fill="#fff" stroke="#2B2A33" stroke-width="5" stroke-linecap="round"/>
+    <path d="M260 104 C290 96 300 112 298 130 C296 150 280 160 260 154" fill="#fff" stroke="#2B2A33" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="160" cy="130" r="104" fill="#D7DBDF" stroke="#2B2A33" stroke-width="5"/>
+    <circle cx="160" cy="130" r="93" fill="#9AA2AA"/>
+    <circle cx="160" cy="130" r="91" fill="url(#${id}g)"/>
+    <g clip-path="url(#${id}c)">${food}${bubbles}${steam}</g>
+    <path d="M92 70 A96 96 0 0 1 150 37" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none" opacity=".8"/>
+    ${sides}
+  </svg>`;
+}
+function miniPot(items){
+  const dots=POT_ING.filter(k=>items[k]).slice(0,6).map((k,i)=>{const a=i*1.1+.4,r=i?7:0;
+    return `<circle cx="${(22+Math.cos(a)*r).toFixed(1)}" cy="${(19+Math.sin(a)*r).toFixed(1)}" r="3.2" fill="${BY[k].c}" stroke="#2B2A33" stroke-width=".8"/>`}).join('');
+  return `<svg class="mini" viewBox="0 0 44 38"><path d="M8 15 C2 14 1 22 6 24 L8 24" fill="none" stroke="#2B2A33" stroke-width="2"/><path d="M36 15 C42 14 43 22 38 24 L36 24" fill="none" stroke="#2B2A33" stroke-width="2"/>
+  <circle cx="22" cy="19" r="15" fill="#D7DBDF" stroke="#2B2A33" stroke-width="2"/><circle cx="22" cy="19" r="12" fill="${brothColor(items)}"/>${dots}</svg>`;
+}
+
+/* =========================================================
+   쟁반
+   ========================================================= */
+const COPY = {1:[[0,0,1]],2:[[-4,8,.64],[40,28,.64]],3:[[-4,0,.56],[46,4,.56],[20,44,.56]]};
+function cellInner(k,n){
+  const t=COPY[Math.max(1,n)];
+  const g=t.map(([x,y,s])=>`<g transform="translate(${x} ${y}) scale(${s})">${art(k)}</g>`).join('');
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">${g}</svg><span class="lbl">${BY[k].label}${n>1?` <b>×${n}</b>`:''}</span>`;
+}
+function trayHTML(items,{interactive=false,hideUnused=false}={}){
+  let h='';
+  ROWS.forEach(([name,keys])=>{
+    const ks=hideUnused?keys.filter(k=>items[k]):keys;if(!ks.length)return;
+    h+=`<div class="row"><div class="row-name hand">${name}</div><div class="cells">`+
+      ks.map(k=>{const n=items[k]||0;const tag=interactive?'button':'div';
+        return `<${tag} class="ing ${n?'on':'off'}" data-k="${k}" ${interactive?`aria-label="${BY[k].name} ${n}개"`:''}>${cellInner(k,n)}</${tag}>`}).join('')+
+      `</div></div>`});
+  return `<div class="tray" id="tray">${h||'<p style="padding:20px;text-align:center;color:#999">재료가 없어요</p>'}</div>`;
+}
+
+/* =========================================================
+   저장소
+   ========================================================= */
+const store={
+  async get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},
+  async set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){console.error('저장 실패',e);toast('저장하지 못했어요')}}
+};
+
+/* =========================================================
+   상태 & 화면
+   ========================================================= */
+const today=new Date();today.setHours(0,0,0,0);
+const S={records:{},view:'cal',month:new Date(today.getFullYear(),today.getMonth(),1),date:null,draft:{},prefs:{mode:'pic',hideUnused:false},armed:false};
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1600)}
+const ico={
+  left:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
+};
+function header(back){
+  return `<header>${back?`<button class="back" data-act="home">${ico.left}달력</button>`:`<div class="brand hand">샤브 일지</div>`}<span></span></header>`;
+}
+
+function render(){
+  S.armed=false;
+  if(S.view==='cal')renderCal();else if(S.view==='edit')renderEdit();else renderDetail();
+  window.scrollTo(0,0);
+}
+
+/* ---- 달력 ---- */
+function renderCal(){
+  const y=S.month.getFullYear(),m=S.month.getMonth();
+  const first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();
+  let cells='';for(let i=0;i<first;i++)cells+='<div class="day blank"></div>';
+  let cnt=0;const freq={};
+  for(let d=1;d<=days;d++){
+    const k=`${y}-${pad(m+1)}-${pad(d)}`,rec=S.records[k],dt=new Date(y,m,d);
+    if(rec){cnt++;POT_ING.forEach(i=>{if(rec.items[i])freq[i]=(freq[i]||0)+rec.items[i]})}
+    cells+=`<button class="day ${rec?'has':''} ${dt.getDay()===0?'sun':''} ${+dt===+today?'today':''}" data-date="${k}" aria-label="${m+1}월 ${d}일${rec?' 샤브샤브 먹은 날':''}"><span class="n">${d}</span>${rec?miniPot(rec.items):''}</button>`;
+  }
+  const top=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
+  $('#app').innerHTML=header(false)+`
+    <section class="sheet">
+      <div class="cal-head"><button class="nav" data-act="prev" aria-label="이전 달">${ico.left}</button>
+        <h2 class="hand">${y}년 ${m+1}월</h2>
+        <button class="nav" data-act="next" aria-label="다음 달">${ico.right}</button></div>
+      <div class="dow">${DOW.map(d=>`<span>${d}</span>`).join('')}</div>
+      <div class="grid">${cells}</div>
+    </section>
+    <p class="month-note hand">${cnt?`이번 달 샤브샤브 <b>${cnt}번</b> 끓였어요`:'이번 달은 아직 기록이 없어요'}</p>
+    ${top?`<p class="fav">제일 많이 넣은 재료는 ${BY[top[0]].name}</p>`:''}`;
+  const tk=keyOf(today),has=!!S.records[tk];
+  $('#bar').innerHTML=`<div class="bar-in"><button class="btn primary" data-act="${has?'open-today':'new-today'}">${has?'오늘 샤브샤브 보기':'오늘 샤브샤브 기록하기'}</button></div>`;
+}
+
+/* ---- 기록(편집) ---- */
+function renderEdit(){
+  const f=fmtDate(S.date);
+  $('#app').innerHTML=header(true)+`
+    <div class="date-row">
+      <div class="date-title hand">${f.main}<small>${f.dow}</small><input type="date" id="datePick" value="${S.date}" aria-label="날짜 바꾸기"></div>
+      <span class="hint">누르면 +1 · 꾹 누르거나 4번째는 빼기</span>
+    </div>
+    <div class="pot-wrap" id="potWrap">${potSVG(S.draft)}</div>
+    <p class="broth-name hand" id="brothName">${brothName(S.draft)}</p>
+    ${trayHTML(S.draft,{interactive:true})}`;
+  updateSaveBar();
+  bindTray();
+  $('#datePick').addEventListener('change',e=>{if(e.target.value){S.date=e.target.value;const f=fmtDate(S.date);
+    e.target.parentElement.firstChild.textContent=f.main;e.target.previousElementSibling.textContent=f.dow;}});
+}
+function updateSaveBar(){
+  const n=total(S.draft);
+  $('#bar').innerHTML=`<div class="bar-in"><button class="btn primary" data-act="save" ${n?'':'disabled'}>${n?'저장하기':'재료를 눌러 담아주세요'}</button></div>`;
+}
+function setCount(k,n,cell){
+  const prev=S.draft[k]||0;
+  if(n>MAX){n=0;toast(`${BY[k].label} 뺐어요`)}
+  if(n)S.draft[k]=n;else delete S.draft[k];
+  cell.className=`ing ${n?'on':'off'}`;cell.innerHTML=cellInner(k,n);
+  cell.setAttribute('aria-label',`${BY[k].name} ${n}개`);
+  void cell.offsetWidth;cell.classList.add('pop');
+  $('#potWrap').innerHTML=potSVG(S.draft,n>prev?k:null);
+  $('#brothName').textContent=brothName(S.draft);
+  updateSaveBar();
+}
+function bindTray(){
+  const tray=$('#tray');let pt=null;
+  tray.addEventListener('contextmenu',e=>e.preventDefault());
+  tray.addEventListener('pointerdown',e=>{
+    const b=e.target.closest('.ing');if(!b)return;
+    pt={b,x:e.clientX,y:e.clientY,long:false,cancel:false};
+    b.classList.add('pressing');
+    pt.t=setTimeout(()=>{pt.long=true;b.classList.remove('pressing');
+      if(S.draft[b.dataset.k]){setCount(b.dataset.k,0,b);navigator.vibrate&&navigator.vibrate(30);toast(`${BY[b.dataset.k].label} 뺐어요`)}},550);
+  });
+  tray.addEventListener('pointermove',e=>{if(pt&&!pt.cancel&&Math.hypot(e.clientX-pt.x,e.clientY-pt.y)>10){pt.cancel=true;clearTimeout(pt.t);pt.b.classList.remove('pressing')}});
+  const end=e=>{if(!pt)return;clearTimeout(pt.t);pt.b.classList.remove('pressing');
+    if(e.type==='pointerup'&&!pt.long&&!pt.cancel){const k=pt.b.dataset.k;setCount(k,(S.draft[k]||0)+1,pt.b)}pt=null};
+  tray.addEventListener('pointerup',end);tray.addEventListener('pointercancel',end);tray.addEventListener('pointerleave',e=>{if(pt&&e.target===tray)end(e)});
+  // 키보드: Enter/Space = +1, Delete/Backspace = 빼기
+  tray.addEventListener('click',e=>{if(e.detail!==0)return;const b=e.target.closest('.ing');if(b){const k=b.dataset.k;setCount(k,(S.draft[k]||0)+1,b)}});
+  tray.addEventListener('keydown',e=>{const b=e.target.closest('.ing');if(b&&(e.key==='Delete'||e.key==='Backspace')){e.preventDefault();setCount(b.dataset.k,0,b)}});
+}
+
+/* ---- 저장된 날 보기 ---- */
+function renderDetail(){
+  const rec=S.records[S.date],f=fmtDate(S.date),p=S.prefs;
+  let body;
+  if(p.mode==='pic'){
+    body=`<div class="opt">안 넣은 재료
+      <button class="chip" data-act="unused-outline" aria-pressed="${!p.hideUnused}">테두리로</button>
+      <button class="chip" data-act="unused-hide" aria-pressed="${p.hideUnused}">숨기기</button></div>
+      ${trayHTML(rec.items,{hideUnused:p.hideUnused})}`;
+  }else{
+    let list='';
+    ROWS.forEach(([name,keys])=>{const ks=keys.filter(k=>rec.items[k]);if(!ks.length)return;
+      list+=`<h3 class="hand">${name}</h3><ul>${ks.map(k=>`<li><span>${BY[k].name}</span><span>${rec.items[k]}${BY[k].cat==='육수'?'알':'개'}</span></li>`).join('')}</ul>`});
+    const kinds=Object.keys(rec.items).length;
+    body=`<div class="textlist">${list}<p class="sum">재료 ${kinds}가지를 넣었어요</p></div>`;
+  }
+  $('#app').innerHTML=header(true)+`
+    <div class="date-row"><div class="date-title hand">${f.main}<small>${f.dow}</small></div></div>
+    <div class="pot-wrap">${potSVG(rec.items)}</div>
+    <p class="broth-name hand">${brothName(rec.items)}</p>
+    <div class="seg" role="group" aria-label="보기 방식">
+      <button data-act="mode-pic" aria-pressed="${p.mode==='pic'}">그림으로 보기</button>
+      <button data-act="mode-text" aria-pressed="${p.mode==='text'}">글로 보기</button>
+    </div>${body}`;
+  $('#bar').innerHTML=`<div class="bar-in"><button class="btn danger" data-act="del">삭제</button><button class="btn" data-act="edit">수정하기</button></div>`;
+}
+
+/* =========================================================
+   이벤트
+   ========================================================= */
+document.addEventListener('click',async e=>{
+  const day=e.target.closest('.day[data-date]');
+  if(day){const k=day.dataset.date;S.date=k;
+    if(S.records[k]){S.view='detail'}else{S.view='edit';S.draft={}}render();return}
+  const a=e.target.closest('[data-act]');if(!a)return;
+  const act=a.dataset.act;
+  switch(act){
+    case 'home':S.view='cal';if(S.date){const d=parseKey(S.date);S.month=new Date(d.getFullYear(),d.getMonth(),1)}render();break;
+    case 'prev':S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);render();break;
+    case 'next':S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);render();break;
+    case 'new-today':S.date=keyOf(today);S.draft={};S.view='edit';render();break;
+    case 'open-today':S.date=keyOf(today);S.view='detail';render();break;
+    case 'save':
+      S.records[S.date]={items:{...S.draft},saved:Date.now()};
+      await store.set('shabu-records',S.records);
+      S.view='detail';render();toast('저장했어요');break;
+    case 'edit':S.draft={...S.records[S.date].items};S.view='edit';render();break;
+    case 'del':
+      if(!S.armed){S.armed=true;a.classList.add('armed');a.textContent='한 번 더 누르면 삭제';
+        clearTimeout(a._t);a._t=setTimeout(()=>{S.armed=false;a.classList.remove('armed');a.textContent='삭제'},2500);break}
+      delete S.records[S.date];await store.set('shabu-records',S.records);
+      S.view='cal';render();toast('삭제했어요');break;
+    case 'mode-pic':S.prefs.mode='pic';store.set('shabu-prefs',S.prefs);render();break;
+    case 'mode-text':S.prefs.mode='text';store.set('shabu-prefs',S.prefs);render();break;
+    case 'unused-outline':S.prefs.hideUnused=false;store.set('shabu-prefs',S.prefs);render();break;
+    case 'unused-hide':S.prefs.hideUnused=true;store.set('shabu-prefs',S.prefs);render();break;
+  }
+});
+
+/* =========================================================
+   시작
+   ========================================================= */
+(async function init(){
+  const saved=await store.get('shabu-records');
+  if(saved)S.records=saved;
+  const pr=await store.get('shabu-prefs');if(pr)S.prefs={...S.prefs,...pr};
+  render();
+})();
+</script>
+</body>
+</html>
