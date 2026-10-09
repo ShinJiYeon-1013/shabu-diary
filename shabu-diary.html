@@ -229,7 +229,7 @@ function customIng(i){
   const c=/^#[0-9a-fA-F]{6}$/.test(i.c)?i.c:'#C9B79C';
   const o={k:i.k,name,label:name,row:i.row,cat:i.row===SIDE_ROW?'기타':i.row,custom:1};
   if(i.row==='육수')o.broth=c;else{o.c=c;if(i.pot!==false)o.pot=1}
-  ART[o.k]=genArt(o);
+  ART[o.k]=NAMED_ART[name]||genArt(o);
   return o;
 }
 
@@ -322,7 +322,28 @@ const ART = {
     <rect x="41" y="33" width="18" height="34" rx="2.5" fill="#3A6FB0" stroke="#22497C"/>
     <path class="d" d="M50 39 V61" stroke="#DCE7F5" stroke-width="2" stroke-dasharray="3 3"/></g>`,
 };
-const ARTWRAP = a => `<g fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${a}</g>`;
+// 사용자가 추가한 재료 중 이름이 같으면 기본 그림 대신 쓰는 손그림
+function ssukSprig(rot,s){
+  return `<g transform="rotate(${rot} 50 94) translate(50 94) scale(${s}) translate(-50 -94)">
+    <path d="M50 94 C49 76 50 52 50 24" stroke="#4F7F3A" stroke-width="3.4"/>
+    <path d="M50 78 C43 72 36 74 38 79 C33 81 36 87 42 85 C44 89 49 87 50 84" fill="#5DA24F" stroke="#22562A"/>
+    <path d="M50 70 C57 64 64 66 62 71 C67 73 64 79 58 77 C56 81 51 79 50 76" fill="#5DA24F" stroke="#22562A"/>
+    <path d="M50 14 C44 14 42 20 45 24 C38 23 36 31 42 33 C35 35 36 43 43 43 C38 48 42 55 48 52 L50 58 L52 52 C58 55 62 48 57 43 C64 43 65 35 58 33 C64 31 62 23 55 24 C58 20 56 14 50 14Z" fill="#4E9A4A" stroke="#22562A"/>
+    <path class="d" d="M50 20 V54 M50 29 L44 27 M50 29 L56 27 M50 38 L42 36 M50 38 L58 36 M50 47 L44 46 M50 47 L56 46" stroke="#B5DB9C" stroke-width="1.6"/>
+  </g>`;
+}
+function tteokSlice(x,y,rot){
+  return `<g transform="rotate(${rot} ${x} ${y})">
+    <ellipse cx="${x}" cy="${y+4}" rx="22" ry="12" fill="#E2D9C3" stroke="#9C9177"/>
+    <ellipse cx="${x}" cy="${y}" rx="22" ry="12" fill="#FBF8EF" stroke="#9C9177"/>
+    <path class="d" d="M${x-13} ${y-3} Q${x-4} ${y-8} ${x+8} ${y-6}" stroke="#E6DECB" stroke-width="2.4"/>
+  </g>`;
+}
+const NAMED_ART = {
+  '쑥갓': ssukSprig(-30,.84)+ssukSprig(30,.84)+ssukSprig(0,1),
+  '떡국떡': tteokSlice(36,36,-22)+tteokSlice(64,48,14)+tteokSlice(42,68,-6),
+};
+const ARTWRAP = a =>`<g fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${a}</g>`;
 const art = k => ARTWRAP(ART[k]);
 // 추가한 재료용 기본 그림: 고른 색 + 이름 첫 글자
 function genArt(i){
@@ -719,7 +740,7 @@ function renderModal(){
     ${hid.length?`<div class="hid"><div class="fld">숨긴 재료</div>${hid.map(k=>`<div class="hid-row"><span>${BY[k].label}</span><button class="chip" data-act="unhide" data-k="${k}">다시 꺼내기</button></div>`).join('')}</div>`:''}
   </div>`;
   const prev=()=>{const name=m.name.replace(/[<>&"']/g,'').trim()||'새 재료',tmp={name,[m.row==='육수'?'broth':'c']:m.c};
-    $('#ingPrev').innerHTML=`<svg viewBox="0 0 100 100" aria-hidden="true">${ARTWRAP(genArt(tmp))}</svg><span>${esc(name)}</span>`};
+    $('#ingPrev').innerHTML=`<svg viewBox="0 0 100 100" aria-hidden="true">${ARTWRAP(NAMED_ART[name]||genArt(tmp))}</svg><span>${esc(name)}</span>`};
   prev();
   $('#ingName').addEventListener('input',e=>{m.name=e.target.value;prev()});
   const pot=$('#ingPot');if(pot)pot.addEventListener('change',e=>{m.pot=e.target.checked});
