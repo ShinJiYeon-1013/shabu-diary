@@ -267,7 +267,7 @@ function applyIngredients(cfg={}){
   SLOTS=makeSlots(POT_ING.length*MAX);
 }
 // 추가한 재료: 분류가 육수면 육수 코인, 소스는 냄비 옆, 곁들임은 '냄비에 넣는 재료'일 때만 냄비에 그림
-const cleanName=v=>String(v||'').replace(/[<>&"']/g,'').trim().slice(0,10);
+const cleanName=v=>String(v||'').replace(/[<>&"']/g,'').trim().slice(0,14);
 function customIng(i){
   const name=cleanName(i.name)||cleanName(i.orig)||'재료';
   const c=/^#[0-9a-fA-F]{6}$/.test(i.c)?i.c:'#C9B79C';
@@ -420,7 +420,7 @@ const NAMED_ART = {
   '쯔유': TSUYU, '츠유': TSUYU,
   '스리라차': SRIRACHA, '스리라차소스': SRIRACHA,
 };
-// 이름이 10글자까지라 줄여 쓸 수 있어서 여러 이름으로 등록
+// 예전엔 이름이 10글자까지라 줄여 썼을 수 있어서 여러 이름으로 등록
 ['꽃게와보리새우코인','꽃게와보리새우코','꽃게보리새우코인','꽃게새우코인','꽃게코인','보리새우코인','꽃게육수코인'].forEach(n=>NAMED_ART[n]=CRAB_COIN);
 // 띄어쓰기는 무시하고 이름으로 그림 찾기
 const namedArt = name => NAMED_ART[String(name).replace(/\s+/g,'')];
@@ -876,7 +876,7 @@ function renderModal(){
       .map(r=>`<button class="chip" data-act="move-ok" data-row="${r}">${r}</button>`).join('')}</div></div>`:'';
     el.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-label="${i.label} 관리">
       <h3 class="hand">${i.label}</h3>
-      <div class="fld">이름 바꾸기<div class="rename-row"><input type="text" id="ingName" maxlength="10" value="${esc(m.name)}" autocomplete="off"><button class="btn primary" data-act="rename-ok">바꾸기</button></div></div>
+      <div class="fld">이름 바꾸기<div class="rename-row"><input type="text" id="ingName" maxlength="14" value="${esc(m.name)}" autocomplete="off"><button class="btn primary" data-act="rename-ok">바꾸기</button></div></div>
       <p class="login-err" id="ingErr" role="alert"></p>
       ${move}
       ${i.custom?delHTML(m):''}
@@ -892,7 +892,7 @@ function renderModal(){
   el.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-label="${m.row}에 재료 추가">
     <h3 class="hand">${m.row}에 재료 추가</h3>
     <div class="prev" id="ingPrev"></div>
-    <label class="fld">이름<input type="text" id="ingName" maxlength="10" value="${esc(m.name)}" placeholder="예: 쑥갓" autocomplete="off"></label>
+    <label class="fld">이름<input type="text" id="ingName" maxlength="14" value="${esc(m.name)}" placeholder="예: 쑥갓" autocomplete="off"></label>
     <div class="fld">색<div class="swatches">${COLORS.map(c=>`<button class="sw" style="background:${c}" data-act="pick-color" data-c="${c}" aria-label="색 ${c}" aria-pressed="${c===m.c}"></button>`).join('')}</div></div>
     ${m.row===SIDE_ROW?`<label class="check"><input type="checkbox" id="ingPot" ${m.pot?'checked':''}> 냄비에 넣는 재료예요 (만두, 떡 같은 것)</label>`:''}
     <p class="login-err" id="ingErr" role="alert"></p>
